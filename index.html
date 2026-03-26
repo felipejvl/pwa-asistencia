@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Toma de Asistencias</title>
+    <!-- Bootstrap CSS -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <!-- Enlace al Manifest de la PWA -->
+    <link rel="manifest" href="/manifest.json" />
+  </head>
+  <body class="bg-light">
+    <div class="container mt-5">
+      <h2 class="mb-4 text-center">Panel de Administración</h2>
+
+      <!-- Módulo para subir CSV -->
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-primary text-white">
+          <h5 class="mb-0">Carga Masiva de Alumnos (.CSV)</h5>
+        </div>
+        <div class="card-body">
+          <form id="csvUploadForm">
+            <div class="mb-3">
+              <label for="csvFile" class="form-label"
+                >Selecciona el archivo con la lista de alumnos</label
+              >
+              <input
+                class="form-control"
+                type="file"
+                id="csvFile"
+                accept=".csv"
+                required
+              />
+            </div>
+            <button type="submit" class="btn btn-success">
+              Subir e Importar
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+    <!-- Contenedor donde aparecerá la tabla de alumnos -->
+    <div class="card shadow-sm" id="contenedorTabla" style="display: none">
+      <div class="card-header bg-dark text-white">
+        <h5 class="mb-0">Vista Previa de Alumnos</h5>
+      </div>
+      <div class="card-body overflow-auto">
+        <div id="resultadoCSV"></div>
+      </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      // Registro básico del Service Worker para la PWA
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker
+          .register("/service-worker.js")
+          .then(() => console.log("Service Worker registrado correctamente."))
+          .catch((error) =>
+            console.log("Error al registrar Service Worker:", error),
+          );
+      }
+
+      document
+        .getElementById("csvUploadForm")
+        .addEventListener("submit", function (evento) {
+          evento.preventDefault(); // Evitamos que la página se recargue
+
+          const inputArchivo = document.getElementById("csvFile");
+          const archivo = inputArchivo.files[0];
+
+          if (archivo) {
+            const lector = new FileReader();
+
+            lector.onload = function (e) {
+              const contenido = e.target.result;
+              mostrarTablaBootstrap(contenido);
+            };
+
+            // Lee el archivo como texto plano
+            lector.readAsText(archivo);
+          }
+        });
+
+      function mostrarTablaBootstrap(textoCSV) {
+        // Separamos el texto por saltos de línea (filas)
+        const filas = textoCSV.split("\n");
+
+        // Armamos la estructura de la tabla de Bootstrap
+        let html = `
+        <table class="table table-striped table-hover mt-3">
+            <thead class="table-light">
+                <tr>
+                    <th>NO LISTA</th>
+                    <th>NO CONTROL</th>
+                    <th>NOMBRE COMPLETO</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+        // Empezamos en i = 1 para saltarnos los encabezados del CSV original
+        for (let i = 1; i < filas.length; i++) {
+          // Ignorar filas en blanco que a veces quedan al final de los CSV
+          if (filas[i].trim() === "") continue;
+
+          // Separamos cada fila por comas (columnas)
+          const columnas = filas[i].split(/[,;\t]/);
+          // Asignamos las columnas a tus datos (Asegúrate de que tu CSV use comas)
+          const noLista = columnas[0] || "-";
+          const noControl = columnas[1] || "-";
+          const nombreCompleto = columnas[2] || "Nombre no encontrado";
+
+          // Añadimos la fila a la tabla
+          html += `
+            <tr>
+                <td>${noLista}</td>
+                <td><strong>${noControl}</strong></td>
+                <td>${nombreCompleto}</td>
+            </tr>
+        `;
+        }
+
+        html += `</tbody></table>`;
+
+        // Insertamos la tabla en el HTML y la hacemos visible
+        document.getElementById("resultadoCSV").innerHTML = html;
+        document.getElementById("contenedorTabla").style.display = "block";
+      }
+    </script>
+  </body>
+</html>
