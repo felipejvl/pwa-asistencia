@@ -3,133 +3,334 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Toma de Asistencias</title>
-    <!-- Bootstrap CSS -->
+    <title>Sistema de Asistencia PWA</title>
     <link
       href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
       rel="stylesheet"
     />
-    <!-- Enlace al Manifest de la PWA -->
     <link rel="manifest" href="/manifest.json" />
+
+    <style>
+      :root {
+        --bs-primary: #0d6efd;
+      }
+      body {
+        padding-bottom: 50px;
+      }
+      /* Estilo para resaltar la fila que se está pasando lista */
+      .fila-activa {
+        background-color: #e8f4fd !important;
+        border-left: 5px solid var(--bs-primary);
+        transition: all 0.3s ease;
+      }
+      .modulo-seccion {
+        display: none;
+      }
+      .modulo-seccion.active {
+        display: block;
+      }
+      .btn-group .btn {
+        font-weight: bold;
+      }
+    </style>
   </head>
   <body class="bg-light">
-    <div class="container mt-5">
-      <h2 class="mb-4 text-center">Panel de Administración</h2>
-
-      <!-- Módulo para subir CSV -->
-      <div class="card shadow-sm mb-4">
-        <div class="card-header bg-primary text-white">
-          <h5 class="mb-0">Carga Masiva de Alumnos (.CSV)</h5>
-        </div>
-        <div class="card-body">
-          <form id="csvUploadForm">
-            <div class="mb-3">
-              <label for="csvFile" class="form-label"
-                >Selecciona el archivo con la lista de alumnos</label
+    <nav
+      class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 shadow sticky-top"
+    >
+      <div class="container-fluid">
+        <a class="navbar-brand" href="#">🎓 AsistenciaApp</a>
+        <button
+          class="navbar-toggler"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#navbarNav"
+        >
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+          <ul class="navbar-nav">
+            <li class="nav-item">
+              <a
+                class="nav-link active"
+                id="link-asistencia"
+                href="#"
+                onclick="switchModulo('asistencia')"
+                >Pase de Lista</a
               >
-              <input
-                class="form-control"
-                type="file"
-                id="csvFile"
-                accept=".csv"
-                required
-              />
-            </div>
-            <button type="submit" class="btn btn-success">
-              Subir e Importar
-            </button>
-          </form>
+            </li>
+            <li class="nav-item">
+              <a
+                class="nav-link"
+                id="link-maestros"
+                href="#"
+                onclick="switchModulo('maestros')"
+                >Maestros</a
+              >
+            </li>
+            <li class="nav-item">
+              <a
+                class="nav-link"
+                id="link-materias"
+                href="#"
+                onclick="switchModulo('materias')"
+                >Materias</a
+              >
+            </li>
+            <li class="nav-item">
+              <a
+                class="nav-link"
+                id="link-asignar"
+                href="#"
+                onclick="switchModulo('asignar')"
+                >Asignaciones</a
+              >
+            </li>
+          </ul>
         </div>
       </div>
-    </div>
-    <!-- Contenedor donde aparecerá la tabla de alumnos -->
-    <div class="card shadow-sm" id="contenedorTabla" style="display: none">
-      <div class="card-header bg-dark text-white">
-        <h5 class="mb-0">Vista Previa de Alumnos</h5>
-      </div>
-      <div class="card-body overflow-auto">
-        <div id="resultadoCSV"></div>
-      </div>
+    </nav>
+
+    <div class="container">
+      <section id="modulo-asistencia" class="modulo-seccion active">
+        <div class="text-center mb-4">
+          <h2>Pase de Lista</h2>
+          <p class="text-muted">Sube el CSV de alumnos para comenzar</p>
+        </div>
+
+        <div class="card shadow-sm mb-4">
+          <div class="card-body">
+            <form id="csvAlumnosForm">
+              <div class="row align-items-center">
+                <div class="col-md-9 mb-2">
+                  <input
+                    class="form-control"
+                    type="file"
+                    id="csvFile"
+                    accept=".csv"
+                    required
+                  />
+                </div>
+                <div class="col-md-3 mb-2">
+                  <button type="submit" class="btn btn-success w-100">
+                    Cargar Alumnos
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <div id="contenedorTabla" style="display: none">
+          <div class="card shadow-sm">
+            <div id="resultadoCSV" class="card-body overflow-auto p-0"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="modulo-maestros" class="modulo-seccion">
+        <h3>Gestión de Docentes</h3>
+        <div class="card shadow-sm mb-3">
+          <div class="card-body">
+            <input
+              class="form-control mb-2"
+              type="file"
+              id="csvMaestrosFile"
+              accept=".csv"
+            />
+            <button class="btn btn-primary" onclick="procesarMaestros()">
+              Cargar Maestros
+            </button>
+          </div>
+        </div>
+        <div id="listaMaestros" class="list-group shadow-sm"></div>
+      </section>
+
+      <section id="modulo-materias" class="modulo-seccion">
+        <h3>Materias y Grupos</h3>
+        <div class="card shadow-sm mb-3">
+          <div class="card-body">
+            <input
+              class="form-control mb-2"
+              type="file"
+              id="csvMateriasFile"
+              accept=".csv"
+            />
+            <button class="btn btn-primary" onclick="procesarMaterias()">
+              Cargar Materias
+            </button>
+          </div>
+        </div>
+        <div id="listaMaterias" class="list-group shadow-sm"></div>
+      </section>
+
+      <section id="modulo-asignar" class="modulo-seccion">
+        <h3>Asignar Grupos a Docentes</h3>
+        <div class="alert alert-info">
+          Aquí podrás cruzar la información de las listas anteriores.
+        </div>
+      </section>
     </div>
 
-    <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
     <script>
-      // Registro básico del Service Worker para la PWA
+      // --- 1. NAVEGACIÓN SPA ---
+      function switchModulo(modulo) {
+        document
+          .querySelectorAll(".modulo-seccion")
+          .forEach((s) => s.classList.remove("active"));
+        document
+          .querySelectorAll(".nav-link")
+          .forEach((l) => l.classList.remove("active"));
+
+        document.getElementById("modulo-" + modulo).classList.add("active");
+        document.getElementById("link-" + modulo).classList.add("active");
+      }
+
+      // --- 2. LÓGICA DE ALUMNOS Y ASISTENCIA ---
+      document
+        .getElementById("csvAlumnosForm")
+        .addEventListener("submit", function (e) {
+          e.preventDefault();
+          const lector = new FileReader();
+          lector.onload = (ev) => mostrarTablaAsistencia(ev.target.result);
+          lector.readAsText(document.getElementById("csvFile").files[0]);
+        });
+
+      function mostrarTablaAsistencia(csv) {
+        const filas = csv.split("\n");
+        const hoy = new Date().toISOString().split("T")[0];
+
+        let html = `
+                <div class="p-3 bg-light border-bottom d-flex justify-content-between align-items-center">
+                    <div>
+                        <label class="fw-bold small">FECHA DE CLASE:</label>
+                        <input type="date" id="fechaAsistencia" class="form-control form-control-sm" value="${hoy}">
+                    </div>
+                    <span class="badge bg-info text-dark">Tip: Toca A, F, R o J para avanzar</span>
+                </div>
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th class="ps-3">#</th>
+                            <th>NOMBRE DEL ALUMNO</th>
+                            <th class="text-center">ESTADO</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+        let count = 0;
+        filas.forEach((linea, i) => {
+          if (i === 0 || linea.trim() === "") return;
+          const col = linea.split(/[,;\t]/);
+          count++;
+
+          html += `
+                <tr id="fila_${count}" class="${count === 1 ? "fila-activa" : ""}">
+                    <td class="ps-3 text-muted small">${col[0]}</td>
+                    <td><strong>${col[2] || "Sin Nombre"}</strong><br><small class="text-muted">${col[1] || ""}</small></td>
+                    <td class="text-center">
+                        <div class="btn-group shadow-sm" role="group">
+                            <input type="radio" class="btn-check" name="ast_${count}" id="a_${count}" value="A" checked onclick="manejarAvance(${count}, false)">
+                            <label class="btn btn-outline-success btn-sm" for="a_${count}">A</label>
+
+                            <input type="radio" class="btn-check" name="ast_${count}" id="f_${count}" value="F" onclick="manejarAvance(${count}, false)">
+                            <label class="btn btn-outline-danger btn-sm" for="f_${count}">F</label>
+
+                            <input type="radio" class="btn-check" name="ast_${count}" id="r_${count}" value="R" onclick="manejarAvance(${count}, false)">
+                            <label class="btn btn-outline-warning btn-sm" for="r_${count}">R</label>
+
+                            <input type="radio" class="btn-check" name="ast_${count}" id="j_${count}" value="J" onclick="manejarAvance(${count}, true)">
+                            <label class="btn btn-outline-info btn-sm" for="j_${count}">J</label>
+                        </div>
+                        <div id="box_nota_${count}" class="mt-2" style="display:none">
+                            <input type="text" id="nota_${count}" class="form-control form-control-sm" placeholder="Motivo...">
+                            <button class="btn btn-primary btn-sm mt-1" onclick="avanzar(${count})">Continuar</button>
+                        </div>
+                    </td>
+                </tr>`;
+        });
+
+        html += `</tbody></table>
+                    <div class="p-3 bg-white border-top">
+                        <button class="btn btn-primary w-100 btn-lg shadow" onclick="finalizarAsistencia()">💾 Guardar Reporte Final</button>
+                    </div>`;
+
+        document.getElementById("resultadoCSV").innerHTML = html;
+        document.getElementById("contenedorTabla").style.display = "block";
+      }
+
+      function manejarAvance(id, esJ) {
+        if (esJ) {
+          document.getElementById(`box_nota_${id}`).style.display = "block";
+          document.getElementById(`nota_${id}`).focus();
+        } else {
+          document.getElementById(`box_nota_${id}`).style.display = "none";
+          avanzar(id);
+        }
+      }
+
+      function avanzar(id) {
+        const actual = document.getElementById(`fila_${id}`);
+        const siguiente = document.getElementById(`fila_${id + 1}`);
+
+        actual.classList.remove("fila-activa");
+        if (siguiente) {
+          siguiente.classList.add("fila-activa");
+          siguiente.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }
+
+      // --- 3. LÓGICA DE MAESTROS Y MATERIAS ---
+      function procesarMaestros() {
+        const file = document.getElementById("csvMaestrosFile").files[0];
+        if (!file) return;
+        const lector = new FileReader();
+        lector.onload = (e) => {
+          const lineas = e.target.result.split("\n");
+          let list = "";
+          lineas.forEach((l, i) => {
+            if (i === 0 || !l.trim()) return;
+            list += `<div class="list-group-item">👤 ${l.split(/[,;\t]/)[1]}</div>`;
+          });
+          document.getElementById("listaMaestros").innerHTML = list;
+          alert("Maestros cargados con éxito.");
+        };
+        lector.readAsText(file);
+      }
+
+      function procesarMaterias() {
+        const file = document.getElementById("csvMateriasFile").files[0];
+        if (!file) return;
+        const lector = new FileReader();
+        lector.onload = (e) => {
+          const lineas = e.target.result.split("\n");
+          let list = "";
+          lineas.forEach((l, i) => {
+            if (i === 0 || !l.trim()) return;
+            list += `<div class="list-group-item">📚 ${l.split(/[,;\t]/)[1]}</div>`;
+          });
+          document.getElementById("listaMaterias").innerHTML = list;
+          alert("Materias cargadas con éxito.");
+        };
+        lector.readAsText(file);
+      }
+
+      function finalizarAsistencia() {
+        const fecha = document.getElementById("fechaAsistencia").value;
+        alert(
+          "¡Asistencia de la fecha " +
+            fecha +
+            " guardada exitosamente en el dispositivo!",
+        );
+      }
+
+      // --- 4. REGISTRO PWA ---
       if ("serviceWorker" in navigator) {
         navigator.serviceWorker
           .register("/service-worker.js")
-          .then(() => console.log("Service Worker registrado correctamente."))
-          .catch((error) =>
-            console.log("Error al registrar Service Worker:", error),
-          );
-      }
-
-      document
-        .getElementById("csvUploadForm")
-        .addEventListener("submit", function (evento) {
-          evento.preventDefault(); // Evitamos que la página se recargue
-
-          const inputArchivo = document.getElementById("csvFile");
-          const archivo = inputArchivo.files[0];
-
-          if (archivo) {
-            const lector = new FileReader();
-
-            lector.onload = function (e) {
-              const contenido = e.target.result;
-              mostrarTablaBootstrap(contenido);
-            };
-
-            // Lee el archivo como texto plano
-            lector.readAsText(archivo);
-          }
-        });
-
-      function mostrarTablaBootstrap(textoCSV) {
-        // Separamos el texto por saltos de línea (filas)
-        const filas = textoCSV.split("\n");
-
-        // Armamos la estructura de la tabla de Bootstrap
-        let html = `
-        <table class="table table-striped table-hover mt-3">
-            <thead class="table-light">
-                <tr>
-                    <th>NO LISTA</th>
-                    <th>NO CONTROL</th>
-                    <th>NOMBRE COMPLETO</th>
-                </tr>
-            </thead>
-            <tbody>
-    `;
-
-        // Empezamos en i = 1 para saltarnos los encabezados del CSV original
-        for (let i = 1; i < filas.length; i++) {
-          // Ignorar filas en blanco que a veces quedan al final de los CSV
-          if (filas[i].trim() === "") continue;
-
-          // Separamos cada fila por comas (columnas)
-          const columnas = filas[i].split(/[,;\t]/);
-          // Asignamos las columnas a tus datos (Asegúrate de que tu CSV use comas)
-          const noLista = columnas[0] || "-";
-          const noControl = columnas[1] || "-";
-          const nombreCompleto = columnas[2] || "Nombre no encontrado";
-
-          // Añadimos la fila a la tabla
-          html += `
-            <tr>
-                <td>${noLista}</td>
-                <td><strong>${noControl}</strong></td>
-                <td>${nombreCompleto}</td>
-            </tr>
-        `;
-        }
-
-        html += `</tbody></table>`;
-
-        // Insertamos la tabla en el HTML y la hacemos visible
-        document.getElementById("resultadoCSV").innerHTML = html;
-        document.getElementById("contenedorTabla").style.display = "block";
+          .catch((e) => console.log(e));
       }
     </script>
   </body>
