@@ -86,6 +86,15 @@
                 >Asignaciones</a
               >
             </li>
+            <li class="nav-item">
+              <a
+                class="nav-link"
+                id="link-reportes"
+                href="#"
+                onclick="switchModulo('reportes')"
+                >📊 Reportes</a
+              >
+            </li>
           </ul>
         </div>
       </div>
@@ -141,6 +150,12 @@
             <button class="btn btn-primary" onclick="procesarMaestros()">
               Cargar Maestros
             </button>
+            <button
+              class="btn btn-outline-danger ms-2"
+              onclick="borrarTodosMaestros()"
+            >
+              Vaciar Lista
+            </button>
           </div>
         </div>
         <div id="listaMaestros" class="list-group shadow-sm"></div>
@@ -166,176 +181,94 @@
 
       <section id="modulo-asignar" class="modulo-seccion">
         <h3>Asignar Grupos a Docentes</h3>
-        <div class="alert alert-info">
-          Aquí podrás cruzar la información de las listas anteriores.
+        <div class="card shadow-sm mb-4">
+          <div class="card-body">
+            <div class="mb-3">
+              <label class="form-label">Selecciona Maestro:</label>
+              <select id="selectMaestro" class="form-select"></select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Selecciona Materia:</label>
+              <select id="selectMateria" class="form-select"></select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Grupo (Ej. 3-A):</label>
+              <input
+                type="text"
+                id="inputGrupo"
+                class="form-control"
+                placeholder="Escribe el nombre del grupo"
+              />
+            </div>
+            <button class="btn btn-dark w-100" onclick="crearAsignacion()">
+              🔗 Vincular Grupo
+            </button>
+          </div>
         </div>
       </section>
+      <!-- SECCIÓN: REPORTES -->
+      <section id="modulo-reportes" class="modulo-seccion">
+        <div class="text-center mb-4">
+          <h2>Historial de Asistencias</h2>
+          <p class="text-muted">Descarga tus listas ya tomadas</p>
+          <button
+            class="btn btn-sm btn-outline-danger mt-2"
+            onclick="limpiarHistorialCompleto()"
+          >
+            🚨 Borrar Historial de Pruebas
+          </button>
+        </div>
+        <!-- ¡NUEVA TARJETA: REPORTE CONCENTRADO! -->
+        <div class="card shadow-sm mb-4 border-primary">
+          <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">📈 Generar Reporte Concentrado (Por Unidad)</h5>
+          </div>
+          <div class="card-body">
+            <div class="row g-3 mb-3">
+              <div class="col-md-4">
+                <label class="form-label fw-bold">Nombre de Evaluación:</label>
+                <input
+                  type="text"
+                  id="nombreUnidad"
+                  class="form-control"
+                  placeholder="Ej. Unidad 1"
+                />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-bold">Fecha de Inicio:</label>
+                <input type="date" id="fechaInicioRep" class="form-control" />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-bold">Fecha de Fin:</label>
+                <input type="date" id="fechaFinRep" class="form-control" />
+              </div>
+            </div>
+            <button
+              class="btn btn-primary w-100 fw-bold"
+              onclick="descargarSabanaFinal()"
+            >
+              📥 Descargar Sábana de Asistencias
+            </button>
+          </div>
+        </div>
+
+        <div class="card shadow-sm">
+          <div id="listaReportes" class="list-group list-group-flush">
+            <!-- Aquí aparecerá el historial automáticamente -->
+          </div>
+        </div>
+      </section>
+
+      <h5 class="mb-3">Asignaciones Actuales</h5>
+      <div id="listaAsignaciones" class="list-group shadow-sm mb-5"></div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="app.js"></script>
     <script src="js/estado.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/asistencia.js"></script>
     <script src="js/catalogos.js"></script>
-
-    <script>
-      // --- 1. NAVEGACIÓN SPA ---
-      function switchModulo(modulo) {
-        document
-          .querySelectorAll(".modulo-seccion")
-          .forEach((s) => s.classList.remove("active"));
-        document
-          .querySelectorAll(".nav-link")
-          .forEach((l) => l.classList.remove("active"));
-
-        document.getElementById("modulo-" + modulo).classList.add("active");
-        document.getElementById("link-" + modulo).classList.add("active");
-      }
-
-      // --- 2. LÓGICA DE ALUMNOS Y ASISTENCIA ---
-      document
-        .getElementById("csvAlumnosForm")
-        .addEventListener("submit", function (e) {
-          e.preventDefault();
-          const lector = new FileReader();
-          lector.onload = (ev) => mostrarTablaAsistencia(ev.target.result);
-          lector.readAsText(document.getElementById("csvFile").files[0]);
-        });
-
-      function mostrarTablaAsistencia(csv) {
-        const filas = csv.split("\n");
-        const hoy = new Date().toISOString().split("T")[0];
-
-        let html = `
-                <div class="p-3 bg-light border-bottom d-flex justify-content-between align-items-center">
-                    <div>
-                        <label class="fw-bold small">FECHA DE CLASE:</label>
-                        <input type="date" id="fechaAsistencia" class="form-control form-control-sm" value="${hoy}">
-                    </div>
-                    <span class="badge bg-info text-dark">Tip: Toca A, F, R o J para avanzar</span>
-                </div>
-                <table class="table table-hover align-middle mb-0">
-                    <thead class="table-dark">
-                        <tr>
-                            <th class="ps-3">#</th>
-                            <th>NOMBRE DEL ALUMNO</th>
-                            <th class="text-center">ESTADO</th>
-                        </tr>
-                    </thead>
-                    <tbody>`;
-
-        let count = 0;
-        filas.forEach((linea, i) => {
-          if (i === 0 || linea.trim() === "") return;
-          const col = linea.split(/[,;\t]/);
-          count++;
-
-          html += `
-                <tr id="fila_${count}" class="${count === 1 ? "fila-activa" : ""}">
-                    <td class="ps-3 text-muted small">${col[0]}</td>
-                    <td><strong>${col[2] || "Sin Nombre"}</strong><br><small class="text-muted">${col[1] || ""}</small></td>
-                    <td class="text-center">
-                        <div class="btn-group shadow-sm" role="group">
-                            <input type="radio" class="btn-check" name="ast_${count}" id="a_${count}" value="A" checked onclick="manejarAvance(${count}, false)">
-                            <label class="btn btn-outline-success btn-sm" for="a_${count}">A</label>
-
-                            <input type="radio" class="btn-check" name="ast_${count}" id="f_${count}" value="F" onclick="manejarAvance(${count}, false)">
-                            <label class="btn btn-outline-danger btn-sm" for="f_${count}">F</label>
-
-                            <input type="radio" class="btn-check" name="ast_${count}" id="r_${count}" value="R" onclick="manejarAvance(${count}, false)">
-                            <label class="btn btn-outline-warning btn-sm" for="r_${count}">R</label>
-
-                            <input type="radio" class="btn-check" name="ast_${count}" id="j_${count}" value="J" onclick="manejarAvance(${count}, true)">
-                            <label class="btn btn-outline-info btn-sm" for="j_${count}">J</label>
-                        </div>
-                        <div id="box_nota_${count}" class="mt-2" style="display:none">
-                            <input type="text" id="nota_${count}" class="form-control form-control-sm" placeholder="Motivo...">
-                            <button class="btn btn-primary btn-sm mt-1" onclick="avanzar(${count})">Continuar</button>
-                        </div>
-                    </td>
-                </tr>`;
-        });
-
-        html += `</tbody></table>
-                    <div class="p-3 bg-white border-top">
-                        <button class="btn btn-primary w-100 btn-lg shadow" onclick="finalizarAsistencia()">💾 Guardar Reporte Final</button>
-                    </div>`;
-
-        document.getElementById("resultadoCSV").innerHTML = html;
-        document.getElementById("contenedorTabla").style.display = "block";
-      }
-
-      function manejarAvance(id, esJ) {
-        if (esJ) {
-          document.getElementById(`box_nota_${id}`).style.display = "block";
-          document.getElementById(`nota_${id}`).focus();
-        } else {
-          document.getElementById(`box_nota_${id}`).style.display = "none";
-          avanzar(id);
-        }
-      }
-
-      function avanzar(id) {
-        const actual = document.getElementById(`fila_${id}`);
-        const siguiente = document.getElementById(`fila_${id + 1}`);
-
-        actual.classList.remove("fila-activa");
-        if (siguiente) {
-          siguiente.classList.add("fila-activa");
-          siguiente.scrollIntoView({ behavior: "smooth", block: "center" });
-        }
-      }
-
-      // --- 3. LÓGICA DE MAESTROS Y MATERIAS ---
-      function procesarMaestros() {
-        const file = document.getElementById("csvMaestrosFile").files[0];
-        if (!file) return;
-        const lector = new FileReader();
-        lector.onload = (e) => {
-          const lineas = e.target.result.split("\n");
-          let list = "";
-          lineas.forEach((l, i) => {
-            if (i === 0 || !l.trim()) return;
-            list += `<div class="list-group-item">👤 ${l.split(/[,;\t]/)[1]}</div>`;
-          });
-          document.getElementById("listaMaestros").innerHTML = list;
-          alert("Maestros cargados con éxito.");
-        };
-        lector.readAsText(file);
-      }
-
-      function procesarMaterias() {
-        const file = document.getElementById("csvMateriasFile").files[0];
-        if (!file) return;
-        const lector = new FileReader();
-        lector.onload = (e) => {
-          const lineas = e.target.result.split("\n");
-          let list = "";
-          lineas.forEach((l, i) => {
-            if (i === 0 || !l.trim()) return;
-            list += `<div class="list-group-item">📚 ${l.split(/[,;\t]/)[1]}</div>`;
-          });
-          document.getElementById("listaMaterias").innerHTML = list;
-          alert("Materias cargadas con éxito.");
-        };
-        lector.readAsText(file);
-      }
-
-      function finalizarAsistencia() {
-        const fecha = document.getElementById("fechaAsistencia").value;
-        alert(
-          "¡Asistencia de la fecha " +
-            fecha +
-            " guardada exitosamente en el dispositivo!",
-        );
-      }
-
-      // --- 4. REGISTRO PWA ---
-      if ("serviceWorker" in navigator) {
-        navigator.serviceWorker
-          .register("/service-worker.js")
-          .catch((e) => console.log(e));
-      }
-    </script>
+    <script src="app_final.js"></script>
   </body>
 </html>
