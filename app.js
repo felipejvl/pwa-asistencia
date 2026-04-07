@@ -136,6 +136,26 @@ function avanzar(id) {
   }
 }
 
+// 1. Definimos la función de Firebase afuera (para que sea más limpio)
+async function guardarEnFirebase(reporte) {
+  // VALIDACIÓN: Si window.fs aún no existe, no intentes desestructurar
+  if (!window.fs) {
+    console.warn(
+      "☁️ Firebase aún no está listo. El reporte se guardó solo en el celular.",
+    );
+    return;
+  }
+
+  try {
+    const { collection, addDoc } = window.fs; // Ahora ya no fallará
+    const db = window.db;
+    const docRef = await addDoc(collection(db, "asistencias"), reporte);
+    console.log("✅ Sincronizado con la nube. ID:", docRef.id);
+  } catch (e) {
+    console.error("❌ Error de red:", e);
+  }
+}
+
 function finalizarAsistencia() {
   const fecha = document.getElementById("fechaAsistencia").value;
 
@@ -190,10 +210,14 @@ function finalizarAsistencia() {
     });
   });
 
-  // Guardamos el sobre en nuestro archivero (historial)
+  // --- GUARDADO DOBLE ---
+  // A. Guardar en local (Inmediato, siempre funciona)
   appData.historial.push(reporteDelDia);
   guardarEnLocal();
+  renderizarReportes(); // Actualizamos la lista visual
 
+  // B. Guardar en la nube (Segundo plano)
+  guardarEnFirebase(reporteDelDia);
   // Ocultamos la tabla porque ya terminamos
   document.getElementById("contenedorTabla").style.display = "none";
 
