@@ -48,8 +48,9 @@
         >
           <span class="navbar-toggler-icon"></span>
         </button>
+
         <div class="collapse navbar-collapse" id="navbarNav">
-          <ul class="navbar-nav">
+          <ul class="navbar-nav me-auto">
             <li class="nav-item">
               <a
                 class="nav-link active"
@@ -62,206 +63,202 @@
             <li class="nav-item">
               <a
                 class="nav-link"
-                id="link-maestros"
-                href="#"
-                onclick="switchModulo('maestros')"
-                >Maestros</a
-              >
-            </li>
-            <li class="nav-item">
-              <a
-                class="nav-link"
-                id="link-materias"
-                href="#"
-                onclick="switchModulo('materias')"
-                >Materias</a
-              >
-            </li>
-            <li class="nav-item">
-              <a
-                class="nav-link"
-                id="link-asignar"
-                href="#"
-                onclick="switchModulo('asignar')"
-                >Asignaciones</a
-              >
-            </li>
-            <li class="nav-item">
-              <a
-                class="nav-link"
                 id="link-reportes"
                 href="#"
                 onclick="switchModulo('reportes')"
-                >📊 Reportes</a
+                >📊 Reportes e Historial</a
               >
+            </li>
+          </ul>
+
+          <ul class="navbar-nav ms-auto">
+            <li class="nav-item dropdown border border-warning rounded">
+              <a
+                class="nav-link dropdown-toggle text-warning"
+                href="#"
+                id="navbarDropdownAdmin"
+                role="button"
+                data-bs-toggle="dropdown"
+              >
+                ⚙️ Panel Administrador
+              </a>
+              <ul class="dropdown-menu dropdown-menu-end dropdown-menu-dark">
+                <li>
+                  <a
+                    class="dropdown-item"
+                    href="#"
+                    onclick="switchModulo('admin-csv')"
+                    >📁 Carga Masiva (CSV)</a
+                  >
+                </li>
+                <li><hr class="dropdown-divider" /></li>
+                <li>
+                  <a
+                    class="dropdown-item"
+                    href="#"
+                    onclick="switchModulo('maestros')"
+                    >👨‍🏫 Gestión Maestros</a
+                  >
+                </li>
+                <li>
+                  <a
+                    class="dropdown-item"
+                    href="#"
+                    onclick="switchModulo('materias')"
+                    >📚 Gestión Materias</a
+                  >
+                </li>
+                <li>
+                  <a
+                    class="dropdown-item"
+                    href="#"
+                    onclick="switchModulo('asignar')"
+                    >🔗 Asignaciones</a
+                  >
+                </li>
+              </ul>
             </li>
           </ul>
         </div>
       </div>
     </nav>
 
-    <div class="container">
-      <section id="modulo-asistencia" class="modulo-seccion active">
+    <main class="container">
+      <section id="modulo-asistencia" class="modulo-seccion">
         <div class="text-center mb-4">
           <h2>Pase de Lista</h2>
-          <p class="text-muted">Sube el CSV de alumnos para comenzar</p>
+          <p class="text-muted">Selecciona tu usuario para ver tus grupos</p>
         </div>
 
-        <div class="card shadow-sm mb-4">
-          <div class="card-body">
-            <form id="csvAlumnosForm">
-              <div class="row align-items-center">
-                <div class="col-md-9 mb-2">
-                  <input
-                    class="form-control"
-                    type="file"
-                    id="csvFile"
-                    accept=".csv"
-                    required
-                  />
-                </div>
-                <div class="col-md-3 mb-2">
-                  <button type="submit" class="btn btn-success w-100">
-                    Cargar Alumnos
-                  </button>
-                </div>
+        <div class="card shadow-sm mb-4 border-0">
+          <div class="card-body bg-white rounded">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label fw-bold"
+                  >1. Selecciona tu nombre:</label
+                >
+                <select
+                  id="select-maestro"
+                  class="form-select form-select-lg"
+                  onchange="cargarGruposDelMaestro()"
+                >
+                  <option value="">Cargando maestros...</option>
+                </select>
               </div>
-            </form>
+              <div class="col-md-6">
+                <label class="form-label fw-bold"
+                  >2. Selecciona el Grupo:</label
+                >
+                <select
+                  id="select-grupo"
+                  class="form-select form-select-lg"
+                  disabled
+                  onchange="cargarListaAlumnos()"
+                >
+                  <option value="">Primero elige un maestro</option>
+                </select>
+              </div>
+            </div>
           </div>
         </div>
 
         <div id="contenedorTabla" style="display: none">
           <div class="card shadow-sm">
-            <div id="resultadoCSV" class="card-body overflow-auto p-0"></div>
+            <div id="resultadoCSV" class="card-body p-0 overflow-auto"></div>
           </div>
         </div>
       </section>
 
-      <section id="modulo-maestros" class="modulo-seccion">
-        <h3>Gestión de Docentes</h3>
-        <div class="card shadow-sm mb-3">
+      <section
+        id="modulo-reportes"
+        class="modulo-seccion"
+        style="display: none"
+      >
+        <div class="text-center mb-4">
+          <h2>📊 Historial y Reportes</h2>
+        </div>
+        <div id="listaReportes"></div>
+      </section>
+
+      <section
+        id="modulo-admin-csv"
+        class="modulo-seccion"
+        style="display: none"
+      >
+        <div class="card border-warning shadow">
+          <div class="card-header bg-warning text-dark">
+            <h5 class="mb-0">📁 Carga Masiva de Datos (CSV)</h5>
+          </div>
           <div class="card-body">
-            <input
-              class="form-control mb-2"
-              type="file"
-              id="csvMaestrosFile"
-              accept=".csv"
-            />
-            <button class="btn btn-primary" onclick="procesarMaestros()">
-              Cargar Maestros
-            </button>
-            <button
-              class="btn btn-outline-danger ms-2"
-              onclick="borrarTodosMaestros()"
-            >
-              Vaciar Lista
-            </button>
+            <div class="row g-4 text-center">
+              <div class="col-md-4">
+                <h6>1. Profesores</h6>
+                <input
+                  type="file"
+                  id="csv-profesores"
+                  class="form-control form-control-sm mb-2"
+                  accept=".csv"
+                />
+                <button
+                  class="btn btn-primary btn-sm w-100"
+                  onclick="procesarAdminCSV('profesores')"
+                >
+                  Subir
+                </button>
+              </div>
+              <div class="col-md-4">
+                <h6>2. Grupos</h6>
+                <input
+                  type="file"
+                  id="csv-grupos"
+                  class="form-control form-control-sm mb-2"
+                  accept=".csv"
+                />
+                <button
+                  class="btn btn-primary btn-sm w-100"
+                  onclick="procesarAdminCSV('grupos')"
+                >
+                  Subir
+                </button>
+              </div>
+              <div class="col-md-4">
+                <h6>3. Alumnos</h6>
+                <input
+                  type="file"
+                  id="csv-alumnos"
+                  class="form-control form-control-sm mb-2"
+                  accept=".csv"
+                />
+                <button
+                  class="btn btn-primary btn-sm w-100"
+                  onclick="procesarAdminCSV('alumnos')"
+                >
+                  Subir
+                </button>
+              </div>
+            </div>
           </div>
         </div>
+      </section>
+
+      <section
+        id="modulo-maestros"
+        class="modulo-seccion"
+        style="display: none"
+      >
+        <h3>Gestión de Docentes</h3>
         <div id="listaMaestros" class="list-group shadow-sm"></div>
       </section>
 
-      <section id="modulo-materias" class="modulo-seccion">
-        <h3>Materias y Grupos</h3>
-        <div class="card shadow-sm mb-3">
-          <div class="card-body">
-            <input
-              class="form-control mb-2"
-              type="file"
-              id="csvMateriasFile"
-              accept=".csv"
-            />
-            <button class="btn btn-primary" onclick="procesarMaterias()">
-              Cargar Materias
-            </button>
-          </div>
-        </div>
+      <section
+        id="modulo-materias"
+        class="modulo-seccion"
+        style="display: none"
+      >
+        <h3>Gestión de Materias</h3>
         <div id="listaMaterias" class="list-group shadow-sm"></div>
       </section>
-
-      <section id="modulo-asignar" class="modulo-seccion">
-        <h3>Asignar Grupos a Docentes</h3>
-        <div class="card shadow-sm mb-4">
-          <div class="card-body">
-            <div class="mb-3">
-              <label class="form-label">Selecciona Maestro:</label>
-              <select id="selectMaestro" class="form-select"></select>
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Selecciona Materia:</label>
-              <select id="selectMateria" class="form-select"></select>
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Grupo (Ej. 3-A):</label>
-              <input
-                type="text"
-                id="inputGrupo"
-                class="form-control"
-                placeholder="Escribe el nombre del grupo"
-              />
-            </div>
-            <button class="btn btn-dark w-100" onclick="crearAsignacion()">
-              🔗 Vincular Grupo
-            </button>
-          </div>
-        </div>
-      </section>
-      <!-- SECCIÓN: REPORTES -->
-      <section id="modulo-reportes" class="modulo-seccion">
-        <div class="text-center mb-4">
-          <h2>Historial de Asistencias</h2>
-          <p class="text-muted">Descarga tus listas ya tomadas</p>
-          <button
-            class="btn btn-sm btn-outline-danger mt-2"
-            onclick="limpiarHistorialCompleto()"
-          >
-            🚨 Borrar Historial de Pruebas
-          </button>
-        </div>
-        <!-- ¡NUEVA TARJETA: REPORTE CONCENTRADO! -->
-        <div class="card shadow-sm mb-4 border-primary">
-          <div class="card-header bg-primary text-white">
-            <h5 class="mb-0">📈 Generar Reporte Concentrado (Por Unidad)</h5>
-          </div>
-          <div class="card-body">
-            <div class="row g-3 mb-3">
-              <div class="col-md-4">
-                <label class="form-label fw-bold">Nombre de Evaluación:</label>
-                <input
-                  type="text"
-                  id="nombreUnidad"
-                  class="form-control"
-                  placeholder="Ej. Unidad 1"
-                />
-              </div>
-              <div class="col-md-4">
-                <label class="form-label fw-bold">Fecha de Inicio:</label>
-                <input type="date" id="fechaInicioRep" class="form-control" />
-              </div>
-              <div class="col-md-4">
-                <label class="form-label fw-bold">Fecha de Fin:</label>
-                <input type="date" id="fechaFinRep" class="form-control" />
-              </div>
-            </div>
-            <button
-              class="btn btn-primary w-100 fw-bold"
-              onclick="descargarSabanaFinal()"
-            >
-              📥 Descargar Sábana de Asistencias
-            </button>
-          </div>
-        </div>
-
-        <div class="card shadow-sm">
-          <div id="listaReportes" class="list-group list-group-flush">
-            <!-- Aquí aparecerá el historial automáticamente -->
-          </div>
-        </div>
-      </section>
-
-      <h5 class="mb-3">Asignaciones Actuales</h5>
-      <div id="listaAsignaciones" class="list-group shadow-sm mb-5"></div>
-    </div>
+    </main>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="config.js"></script>

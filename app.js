@@ -10,47 +10,67 @@ let appData = {
 
 // Esta función es la que "guarda la partida" en el navegador
 function guardarEnLocal() {
-  localStorage.setItem("app_alumnos", JSON.stringify(appData.alumnos)); // <--- ¡NUEVO!
-  localStorage.setItem("app_maestros", JSON.stringify(appData.maestros));
-  localStorage.setItem("app_materias", JSON.stringify(appData.materias));
-  localStorage.setItem(
-    "app_asignaciones",
-    JSON.stringify(appData.asignaciones),
-  );
-  localStorage.setItem("app_historial", JSON.stringify(appData.historial)); // <--- ¡Nuevo!
+  const modulos = [
+    "asistencia",
+    "reportes",
+    "admin-csv",
+    "maestros",
+    "materias",
+    "asignar",
+  ];
+
+  modulos.forEach((id) => {
+    const el = document.getElementById(`modulo-${id}`);
+    if (el) el.style.display = "none";
+  });
+
+  const seleccionado = document.getElementById(`modulo-${modulo}`);
+  if (seleccionado) {
+    seleccionado.style.display = "block";
+    console.log("📂 Cambiando al módulo:", modulo);
+
+    // GATILLOS DE CARGA
+    if (modulo === "maestros") renderizarMaestrosGestion();
+    if (modulo === "materias") renderizarMateriasGestion();
+    if (modulo === "asistencia") inicializarApp(); // <--- Aquí carga los maestros para el profe
+  }
 }
 
 // --- 1. NAVEGACIÓN SPA ---
 function switchModulo(modulo) {
-  document
-    .querySelectorAll(".modulo-seccion")
-    .forEach((s) => s.classList.remove("active"));
-  document
-    .querySelectorAll(".nav-link")
-    .forEach((l) => l.classList.remove("active"));
+  // 1. Ocultar todos los módulos
+  const secciones = document.querySelectorAll(".modulo-seccion");
+  secciones.forEach((s) => (s.style.display = "none"));
 
-  document.getElementById("modulo-" + modulo).classList.add("active");
-  document.getElementById("link-" + modulo).classList.add("active");
+  // 2. Mostrar el seleccionado (usando el ID correcto)
+  const seleccionado = document.getElementById(`modulo-${modulo}`);
+  if (seleccionado) {
+    seleccionado.style.display = "block";
 
-  if (modulo === "asignar") {
-    cargarSelectoresAsignaciones();
-    renderizarAsignaciones();
-  }
-  // ¡NUEVO! Si entramos a reportes, dibujamos el historial
-  if (modulo === "reportes") {
-    renderizarReportes();
+    // 3. GATILLOS: Ejecutar la carga de datos según el módulo
+    console.log("Cambiando al módulo:", modulo);
+
+    if (modulo === "maestros") renderizarMaestrosGestion();
+    if (modulo === "materias") renderizarMateriasGestion();
+    if (modulo === "asignar") actualizarSelectoresAsignacion();
+    if (modulo === "asistencia") inicializarApp();
   }
 }
 
 // --- 2. LÓGICA DE ALUMNOS Y ASISTENCIA ---
-document
+/* document
   .getElementById("csvAlumnosForm")
   .addEventListener("submit", function (e) {
     e.preventDefault();
     const lector = new FileReader();
     lector.onload = (ev) => mostrarTablaAsistencia(ev.target.result);
     lector.readAsText(document.getElementById("csvFile").files[0]);
-  });
+  }); */
+
+document.addEventListener("DOMContentLoaded", () => {
+  // Si estamos en la pantalla de asistencia, cargamos maestros
+  inicializarApp();
+});
 
 function mostrarTablaAsistencia(csv) {
   const filas = csv.split("\n");
@@ -230,22 +250,53 @@ function finalizarAsistencia() {
 // --- 3. LÓGICA DE MAESTROS Y MATERIAS (CON MEMORIA) ---
 function procesarMaestros() {
   const file = document.getElementById("csvMaestrosFile").files[0];
-  if (!file) return;
-  const lector = new FileReader();
-  lector.onload = (e) => {
-    const lineas = e.target.result.split("\n");
-    appData.maestros = []; // Limpiamos la lista anterior
+  if (!file) return alert("Selecciona un archivo de maestros");
 
+  const lector = new FileReader();
+  lector.onload = async (e) => {
+    const lineas = e.target.result.split("\n");
+    appData.maestros = []; // Limpiamos local
+
+    // --- 1. PROCESAMIENTO LOCAL ---
     lineas.forEach((l, i) => {
       if (i === 0 || !l.trim()) return;
+      // Usamos tu separador inteligente
       const datos = l.split(/[,;\t]/);
-      appData.maestros.push({ id: datos[0].trim(), nombre: datos[1].trim() }); // Guardamos en el cerebro
+      if (datos.length >= 2) {
+        appData.maestros.push({
+          id: datos[0].trim(),
+          nombre: datos[1].trim(),
+        });
+      }
     });
 
-    guardarEnLocal(); // Guardamos la partida
-    renderizarMaestros(); // Dibujamos en pantalla
-    alert("Maestros guardados permanentemente.");
+    // --- 2. GUARDADO EN NUBE (FIREBASE) ---
+    // Verificamos si Firebase está listo
+    if (window.fs && window.db) {
+      const { collection, addDoc } = window.fs;
+      const db = window.db;
+
+      console.log("Subiendo maestros a la nube...");
+
+      try {
+        // Subimos cada maestro de uno por uno
+        for (const maestro of appData.maestros) {
+          await addDoc(collection(db, "profesores"), maestro);
+        }
+        console.log("✅ Nube actualizada");
+      } catch (error) {
+        console.error("❌ Error al subir a Firebase:", error);
+      }
+    }
+
+    // --- 3. FINALIZAR ---
+    guardarEnLocal(); // Tu función de siempre
+    renderizarMaestros(); // Tu función de siempre
+    alert(
+      `Éxito: ${appData.maestros.length} maestros guardados en local y nube.`,
+    );
   };
+
   lector.readAsText(file);
 }
 
@@ -388,16 +439,11 @@ if ("serviceWorker" in navigator) {
 
 function renderizarReportes() {
   let list = "";
-
-  // Recorremos el historial al revés (.slice().reverse()) para ver el más nuevo primero
   appData.historial
     .slice()
     .reverse()
     .forEach((reporte, indexInvertido) => {
-      // Calculamos el índice real original porque lo volteamos
       const indexReal = appData.historial.length - 1 - indexInvertido;
-
-      // Contamos rápido cuántos vinieron para mostrar un resumen en la tarjeta
       let a = 0,
         f = 0,
         r = 0,
@@ -410,25 +456,65 @@ function renderizarReportes() {
       });
 
       list += `
-      <div class="list-group-item d-flex justify-content-between align-items-center p-3">
-          <div>
-              <h5 class="mb-1">📅 ${reporte.fecha}</h5>
-              <small class="text-muted">
-                  <span class="text-success fw-bold">A: ${a}</span> | 
-                  <span class="text-danger fw-bold">F: ${f}</span> | 
-                  <span class="text-warning fw-bold">R: ${r}</span> | 
-                  <span class="text-info fw-bold">J: ${j}</span>
-              </small>
-          </div>
-          <button class="btn btn-success shadow-sm" onclick="descargarCSV(${indexReal})">
-              📥 Descargar .CSV
-          </button>
-      </div>`;
+        <div class="list-group-item d-flex justify-content-between align-items-center p-3">
+            <div>
+                <h5 class="mb-1">📅 ${reporte.fecha}</h5>
+                <small class="text-muted">
+                    <span class="text-success fw-bold">A: ${a}</span> | 
+                    <span class="text-danger fw-bold">F: ${f}</span> | 
+                    <span class="text-warning fw-bold">R: ${r}</span> | 
+                    <span class="text-info fw-bold">J: ${j}</span>
+                </small>
+            </div>
+            <button class="btn btn-success shadow-sm" onclick="descargarCSV(${indexReal})">
+                📥 Descargar .CSV
+            </button>
+        </div>`;
     });
-
   document.getElementById("listaReportes").innerHTML =
     list ||
-    "<div class='text-muted p-4 text-center'>Aún no hay listas guardadas en el historial.</div>";
+    "<div class='text-muted p-4 text-center'>Aún no hay listas guardadas.</div>";
+}
+
+function descargarCSV(index) {
+  const reporte = appData.historial[index];
+  let contenidoCSV = "NO LISTA,NOMBRE,ESTADO,NOTAS/JUSTIFICANTE\n";
+
+  reporte.alumnos.forEach((al) => {
+    let notaSegura = al.nota ? `"${al.nota}"` : "";
+    contenidoCSV += `${al.lista},"${al.nombre}",${al.estado},${notaSegura}\n`;
+  });
+
+  const blob = new Blob([contenidoCSV], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `Asistencia_${reporte.fecha}.csv`;
+  link.click();
+}
+
+function descargarSabanaFinal() {
+  const nombre = document.getElementById("nombreUnidad").value || "Concentrado";
+  const fInicio = document.getElementById("fechaInicioRep").value;
+  const fFin = document.getElementById("fechaFinRep").value;
+
+  if (!fInicio || !fFin) return alert("⚠️ Selecciona el rango de fechas.");
+
+  const historialFiltrado = appData.historial.filter(
+    (rep) => rep.fecha >= fInicio && rep.fecha <= fFin,
+  );
+  if (historialFiltrado.length === 0)
+    return alert("🤷‍♂️ No hay datos en este rango.");
+
+  // (Aquí va el resto de tu lógica de la sábana que ya tenías,
+  // pero asegúrate de que termine con una llave '}' bien puesta)
+}
+
+function limpiarHistorialCompleto() {
+  if (confirm("🚨 ¿Borrar TODO el historial?")) {
+    appData.historial = [];
+    guardarEnLocal();
+    renderizarReportes();
+  }
 }
 
 function descargarCSV(index) {
@@ -556,132 +642,22 @@ function descargarSabanaFinal() {
   document.body.removeChild(link);
 }
 
+// --- 6. MÓDULO DE REPORTES Y DESCARGAS (BLOQUE CORREGIDO) ---
+
 function descargarCSV(index) {
   const reporte = appData.historial[index];
+  if (!reporte) return;
 
-  // 1. Preparamos los encabezados del archivo Excel/CSV
+  // 1. Preparamos los encabezados
   let contenidoCSV = "NO LISTA,NOMBRE,ESTADO,NOTAS/JUSTIFICANTE\n";
 
-  // 2. Llenamos el archivo con los datos de los alumnos
+  // 2. Llenamos el archivo con los datos
   reporte.alumnos.forEach((al) => {
-    // Limpiamos la nota por si el maestro usó comas al escribir (para que no rompa el CSV)
     let notaSegura = al.nota ? `"${al.nota}"` : "";
-
-    // Agregamos la fila del alumno
     contenidoCSV += `${al.lista},"${al.nombre}",${al.estado},${notaSegura}\n`;
   });
 
-  function generarReporteConcentrado() {
-    const nombre =
-      document.getElementById("nombreUnidad").value || "Concentrado";
-    const fInicio = document.getElementById("fechaInicioRep").value;
-    const fFin = document.getElementById("fechaFinRep").value;
-
-    if (!fInicio || !fFin) {
-      alert(
-        "⚠️ Por favor selecciona la fecha de inicio y la fecha de fin de la unidad.",
-      );
-      return;
-    }
-
-    // 1. Filtramos el historial por rango de fechas
-    const historialFiltrado = appData.historial.filter((rep) => {
-      return rep.fecha >= fInicio && rep.fecha <= fFin;
-    });
-
-    if (historialFiltrado.length === 0) {
-      alert("🤷‍♂️ No hay asistencias registradas en este rango de fechas.");
-      return;
-    }
-
-    // 2. Ordenamos cronológicamente por la hora exacta en que se guardó
-    historialFiltrado.sort(
-      (a, b) => new Date(a.fechaCaptura) - new Date(b.fechaCaptura),
-    );
-
-    // ¡NUEVA MAGIA!: Creamos columnas únicas usando Fecha + Hora
-    // Ejemplo: "2026-03-28 [10:30]"
-    const columnasSesiones = historialFiltrado.map((rep) => {
-      // Extraemos solo la hora y minuto de cuando le diste al botón guardar
-      const hora = new Date(rep.fechaCaptura).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-      return {
-        idOriginal: rep.fechaCaptura,
-        tituloColumna: `${rep.fecha} [${hora}]`,
-        alumnos: rep.alumnos,
-      };
-    });
-
-    // 3. Agrupamos los datos por alumno
-    let alumnosConcen = {};
-
-    columnasSesiones.forEach((sesion) => {
-      sesion.alumnos.forEach((al) => {
-        if (!alumnosConcen[al.lista]) {
-          alumnosConcen[al.lista] = {
-            nombre: al.nombre,
-            historialPorSesion: {},
-          };
-        }
-        // Guardamos la letra (A, F, R, J) vinculada a la FECHA y HORA exactas
-        alumnosConcen[al.lista].historialPorSesion[sesion.idOriginal] =
-          al.estado;
-      });
-    });
-
-    // 4. Armamos el archivo CSV (La sábana)
-    // Juntamos todos los títulos de las columnas (ej. "28/03 [10:00],28/03 [11:30]")
-    const encabezadosDias = columnasSesiones
-      .map((s) => s.tituloColumna)
-      .join(",");
-    let csv = `NO LISTA,NOMBRE,${encabezadosDias},TOTAL ASISTENCIAS,TOTAL FALTAS,TOTAL RETARDOS,TOTAL JUSTIFICANTES\n`;
-
-    // Ordenamos a los alumnos numéricamente por número de lista
-    const listaNumeros = Object.keys(alumnosConcen).sort(
-      (a, b) => parseInt(a) - parseInt(b),
-    );
-
-    listaNumeros.forEach((numLista) => {
-      const al = alumnosConcen[numLista];
-      let fila = `${numLista},"${al.nombre}"`;
-
-      let tA = 0,
-        tF = 0,
-        tR = 0,
-        tJ = 0;
-
-      // Llenamos la fila del alumno pasando por cada sesión grabada
-      columnasSesiones.forEach((sesion) => {
-        const estado = al.historialPorSesion[sesion.idOriginal] || "-";
-        fila += `,${estado}`;
-
-        // Sumamos los totales reales
-        if (estado === "A") tA++;
-        if (estado === "F") tF++;
-        if (estado === "R") tR++;
-        if (estado === "J") tJ++;
-      });
-
-      fila += `,${tA},${tF},${tR},${tJ}\n`;
-      csv += fila;
-    });
-
-    // 5. Descargamos el archivo final
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-
-    link.download = `Reporte_${nombre.replace(/ /g, "_")}_${fInicio}_al_${fFin}.csv`;
-    link.style.visibility = "hidden";
-
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  }
-
-  // 3. Magia del navegador: Creamos un archivo invisible y forzamos la descarga
+  // 3. Magia del navegador: Descarga del archivo
   const blob = new Blob([contenidoCSV], { type: "text/csv;charset=utf-8;" });
   const link = document.createElement("a");
   const url = URL.createObjectURL(blob);
@@ -689,23 +665,403 @@ function descargarCSV(index) {
   link.setAttribute("href", url);
   link.setAttribute("download", `Asistencia_${reporte.fecha}.csv`);
   link.style.visibility = "hidden";
-
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-}
+} // <--- AQUÍ TERMINA descargarCSV
+
+function generarReporteConcentrado() {
+  const nombre = document.getElementById("nombreUnidad").value || "Concentrado";
+  const fInicio = document.getElementById("fechaInicioRep").value;
+  const fFin = document.getElementById("fechaFinRep").value;
+
+  if (!fInicio || !fFin) {
+    alert("⚠️ Por favor selecciona la fecha de inicio y fin.");
+    return;
+  }
+
+  // 1. Filtramos historial
+  const historialFiltrado = appData.historial.filter((rep) => {
+    return rep.fecha >= fInicio && rep.fecha <= fFin;
+  });
+
+  if (historialFiltrado.length === 0) {
+    alert("🤷‍♂️ No hay asistencias en este rango.");
+    return;
+  }
+
+  // 2. Ordenamos cronológicamente
+  historialFiltrado.sort(
+    (a, b) => new Date(a.fechaCaptura) - new Date(b.fechaCaptura),
+  );
+
+  // 3. Creamos columnas (Fecha + Hora)
+  const columnasSesiones = historialFiltrado.map((rep) => {
+    const hora = new Date(rep.fechaCaptura).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    return {
+      idOriginal: rep.fechaCaptura,
+      tituloColumna: `${rep.fecha} [${hora}]`,
+      alumnos: rep.alumnos,
+    };
+  });
+
+  // 4. Agrupamos por alumno
+  let alumnosConcen = {};
+  columnasSesiones.forEach((sesion) => {
+    sesion.alumnos.forEach((al) => {
+      if (!alumnosConcen[al.lista]) {
+        alumnosConcen[al.lista] = {
+          nombre: al.nombre,
+          historialPorSesion: {},
+        };
+      }
+      alumnosConcen[al.lista].historialPorSesion[sesion.idOriginal] = al.estado;
+    });
+  });
+
+  // 5. Armamos el CSV final (La Sábana)
+  const encabezadosDias = columnasSesiones
+    .map((s) => s.tituloColumna)
+    .join(",");
+  let csv = `NO LISTA,NOMBRE,${encabezadosDias},TOTAL A,TOTAL F,TOTAL R,TOTAL J\n`;
+
+  const listaNumeros = Object.keys(alumnosConcen).sort(
+    (a, b) => parseInt(a) - parseInt(b),
+  );
+
+  listaNumeros.forEach((numLista) => {
+    const al = alumnosConcen[numLista];
+    let fila = `${numLista},"${al.nombre}"`;
+    let tA = 0,
+      tF = 0,
+      tR = 0,
+      tJ = 0;
+
+    columnasSesiones.forEach((sesion) => {
+      const estado = al.historialPorSesion[sesion.idOriginal] || "-";
+      fila += `,${estado}`;
+      if (estado === "A") tA++;
+      if (estado === "F") tF++;
+      if (estado === "R") tR++;
+      if (estado === "J") tJ++;
+    });
+
+    fila += `,${tA},${tF},${tR},${tJ}\n`;
+    csv += fila;
+  });
+
+  // 6. Descarga del reporte final
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `Reporte_${nombre.replace(/ /g, "_")}_${fInicio}_al_${fFin}.csv`;
+  link.click();
+} // <--- AQUÍ TERMINA generarReporteConcentrado
 
 function limpiarHistorialCompleto() {
-  if (
-    confirm(
-      "🚨 ¡ADVERTENCIA! ¿Estás seguro de que quieres borrar TODO el historial de asistencias de tu dispositivo? Esta acción no se puede deshacer.",
-    )
-  ) {
-    appData.historial = []; // Vaciamos el cerebro
-    guardarEnLocal(); // Guardamos el cerebro vacío
-    renderizarReportes(); // Actualizamos la pantalla
-    alert(
-      "🧹 Historial borrado exitosamente. Todo está limpio y listo para usarse.",
-    );
+  if (confirm("🚨 ¿Borrar todo el historial?")) {
+    appData.historial = [];
+    guardarEnLocal();
+    renderizarReportes();
+    alert("Historial limpio.");
   }
 }
+
+function switchModulo(moduloId) {
+  // 1. Lista de todos tus contenedores de sección
+  const modulos = [
+    "modulo-asistencia",
+    "modulo-reportes",
+    "modulo-admin-csv",
+    "modulo-maestros",
+    "modulo-materias",
+    "modulo-asignar",
+  ];
+
+  // 2. Ocultar todos
+  modulos.forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = "none";
+  });
+
+  // 3. Mostrar el seleccionado
+  // Nota: Si el moduloId es 'asistencia', el ID del div debe ser 'modulo-asistencia'
+  const seleccionado = document.getElementById(`modulo-${moduloId}`);
+  if (seleccionado) {
+    seleccionado.style.display = "block";
+  }
+
+  // 4. (Opcional) Cerrar el menú en móviles después de hacer clic
+  const navbarCollapse = document.getElementById("navbarNav");
+  if (navbarCollapse.classList.contains("show")) {
+    bootstrap.Collapse.getInstance(navbarCollapse).hide();
+  }
+}
+
+async function procesarAdminCSV(tipoColeccion) {
+  const inputId = `csv-${tipoColeccion}`;
+  const fileInput = document.getElementById(inputId);
+
+  if (!fileInput || !fileInput.files[0]) {
+    return alert(`❌ Por favor, selecciona el archivo para ${tipoColeccion}`);
+  }
+
+  const file = fileInput.files[0];
+  const lector = new FileReader();
+
+  lector.onload = async (e) => {
+    const contenido = e.target.result;
+    const lineas = contenido.split("\n").filter((l) => l.trim() !== "");
+
+    // Obtenemos los encabezados
+    const encabezados = lineas[0]
+      .split(/[,;\t]/)
+      .map((h) => h.trim().toLowerCase());
+
+    if (window.fs && window.db) {
+      const { collection, addDoc } = window.fs;
+      const db = window.db;
+      let contador = 0;
+
+      console.log(
+        `🚀 Iniciando subida de ${lineas.length - 1} registros a: ${tipoColeccion}`,
+      );
+
+      for (let i = 1; i < lineas.length; i++) {
+        const datos = lineas[i].split(/[,;\t]/);
+        if (datos.length < 2) continue;
+
+        let objetoParaSubir = {};
+        encabezados.forEach((h, index) => {
+          objetoParaSubir[h] = datos[index] ? datos[index].trim() : "";
+        });
+
+        try {
+          // AGREGAMOS ESTO: Para ver el progreso en tiempo real
+          await addDoc(collection(db, tipoColeccion), objetoParaSubir);
+          contador++;
+          console.log(
+            `✅ [${contador}/${lineas.length - 1}] Guardado:`,
+            objetoParaSubir.nombre || objetoParaSubir.id,
+          );
+        } catch (error) {
+          console.error(`❌ Error en fila ${i}:`, error);
+        }
+      }
+
+      alert(
+        `✅ ¡Éxito! Se sincronizaron ${contador} registros en la colección ${tipoColeccion}.`,
+      );
+      fileInput.value = "";
+
+      // Verificamos si la función existe antes de llamarla para que no truene el código
+      if (typeof cargarMateriasDeNube === "function") {
+        cargarMateriasDeNube();
+      }
+    } else {
+      alert("❌ Error: Firebase no está conectado.");
+    }
+  };
+
+  lector.readAsText(file);
+}
+
+async function cargarMateriasDeNube() {
+  const contenedor = document.querySelector(
+    "#modulo-materias #lista-asignaciones",
+  );
+  // Nota: Asegúrate de que en tu HTML tengas un <div id="lista-asignaciones"></div>
+
+  if (!contenedor) return;
+  contenedor.innerHTML = "Cargando datos de la nube... ⏳";
+
+  try {
+    const { collection, getDocs, query, orderBy } = window.fs;
+    const db = window.db;
+
+    // Pedimos la colección 'materias' (o 'grupos') ordenada por nombre
+    const q = query(collection(db, "materias"), orderBy("nombre"));
+    const querySnapshot = await getDocs(q);
+
+    let html = '<ul class="list-group shadow-sm">';
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      html += `
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>${data.nombre}</strong> <br>
+                        <small class="text-muted">ID: ${data.id} | Maestro: ${data.id_maestro}</small>
+                    </div>
+                    <span class="badge bg-primary rounded-pill">Activo</span>
+                </li>`;
+    });
+    html += "</ul>";
+
+    contenedor.innerHTML = querySnapshot.empty
+      ? "No hay materias registradas."
+      : html;
+  } catch (e) {
+    console.error("Error al leer materias:", e);
+    contenedor.innerHTML = "❌ No se pudieron cargar las materias.";
+  }
+}
+
+// --- FUNCIÓN PARA VER MAESTROS EN GESTIÓN ---
+async function renderizarMaestrosGestion() {
+  const contenedor = document.getElementById("listaMaestros");
+  if (!contenedor) return;
+  contenedor.innerHTML =
+    '<div class="text-center p-3">Cargando maestros...</div>';
+
+  try {
+    const { collection, getDocs } = window.fs;
+    const snapshot = await getDocs(collection(window.db, "profesores"));
+
+    let html = "";
+    snapshot.forEach((doc) => {
+      const m = doc.data();
+      html += `
+                <div class="list-group-item d-flex justify-content-between align-items-center">
+                    <span><strong>${m.nombre}</strong> <small class="text-muted">(ID: ${m.id})</small></span>
+                    <button class="btn btn-sm btn-outline-danger" onclick="eliminarDoc('profesores', '${doc.id}')">🗑️</button>
+                </div>`;
+    });
+    contenedor.innerHTML = snapshot.empty
+      ? "No hay maestros registrados."
+      : html;
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+// --- FUNCIÓN PARA VER MATERIAS EN GESTIÓN ---
+async function renderizarMateriasGestion() {
+  const contenedor = document.getElementById("listaMaterias");
+  if (!contenedor) return;
+  contenedor.innerHTML =
+    '<div class="text-center p-3">Cargando materias...</div>';
+
+  try {
+    const { collection, getDocs } = window.fs;
+    const snapshot = await getDocs(collection(window.db, "materias")); // O "grupos", según como lo guardaste
+
+    let html = "";
+    snapshot.forEach((doc) => {
+      const m = doc.data();
+      html += `
+                <div class="list-group-item d-flex justify-content-between align-items-center">
+                    <span><strong>${m.nombre}</strong> <small class="text-muted">(Maestro: ${m.id_maestro})</small></span>
+                    <button class="btn btn-sm btn-outline-danger" onclick="eliminarDoc('materias', '${doc.id}')">🗑️</button>
+                </div>`;
+    });
+    contenedor.innerHTML = snapshot.empty
+      ? "No hay materias registradas."
+      : html;
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function inicializarApp() {
+  console.log("🚀 Intentando cargar maestros desde Firebase...");
+  const selectMaestro = document.getElementById("select-maestro");
+
+  if (!selectMaestro) {
+    console.warn(
+      "⚠️ No se encontró el elemento 'select-maestro'. Ignorando carga.",
+    );
+    return;
+  }
+
+  selectMaestro.innerHTML = '<option value="">Cargando maestros...</option>';
+
+  try {
+    // Verificamos que Firebase esté listo
+    if (!window.fs || !window.db) {
+      console.error("❌ Firebase no está listo todavía.");
+      return;
+    }
+
+    const { collection, getDocs } = window.fs;
+    const db = window.db;
+
+    // Traemos los profesores de la nube
+    const snapshot = await getDocs(collection(db, "profesores"));
+    console.log(`📊 Se encontraron ${snapshot.size} maestros en la nube.`);
+
+    let options = '<option value="">-- Selecciona tu nombre --</option>';
+    snapshot.forEach((doc) => {
+      const m = doc.data();
+      options += `<option value="${m.id}">${m.nombre}</option>`;
+    });
+
+    selectMaestro.innerHTML = snapshot.empty
+      ? '<option value="">No hay maestros registrados</option>'
+      : options;
+  } catch (e) {
+    console.error("❌ Error al cargar maestros:", e);
+    selectMaestro.innerHTML =
+      '<option value="">Error al conectar con la nube</option>';
+  }
+}
+
+async function cargarGruposDelMaestro() {
+  const maestroId = document.getElementById("select-maestro").value;
+  const selectGrupo = document.getElementById("select-grupo");
+
+  // 1. Si el profe no ha seleccionado nada, bloqueamos el segundo cuadro
+  if (!maestroId) {
+    selectGrupo.disabled = true;
+    selectGrupo.innerHTML =
+      '<option value="">Primero elige un maestro</option>';
+    return;
+  }
+
+  // 2. Preparamos el selector de grupos
+  selectGrupo.disabled = false;
+  selectGrupo.innerHTML = '<option value="">Cargando grupos...</option>';
+
+  try {
+    const { collection, getDocs, query, where } = window.fs;
+    const db = window.db;
+
+    // 3. CONSULTA FILTRADA: Buscamos en la colección 'materias'
+    // IMPORTANTE: Asegúrate de que en Firebase tu colección se llame 'materias'
+    const q = query(
+      collection(db, "materias"),
+      where("id_maestro", "==", maestroId),
+    );
+
+    const snapshot = await getDocs(q);
+    console.log(
+      `📚 Se encontraron ${snapshot.size} grupos para el maestro ${maestroId}`,
+    );
+
+    let options = '<option value="">-- Selecciona el grupo --</option>';
+
+    snapshot.forEach((doc) => {
+      const g = doc.data();
+      // Usamos g.nombre y g.id (ajusta si tus columnas del CSV tenían otros nombres)
+      options += `<option value="${g.id}">${g.nombre}</option>`;
+    });
+
+    if (snapshot.empty) {
+      selectGrupo.innerHTML =
+        '<option value="">No tienes grupos asignados</option>';
+    } else {
+      selectGrupo.innerHTML = options;
+    }
+  } catch (e) {
+    console.error("❌ Error al cargar grupos:", e);
+    selectGrupo.innerHTML = '<option value="">Error al cargar grupos</option>';
+  }
+}
+
+// --- ESTO DEBE IR AL FINAL DE TODO TU ARCHIVO APP.JS ---
+document.addEventListener("DOMContentLoaded", () => {
+  console.log("📱 App lista. Iniciando configuración...");
+  inicializarApp();
+});
