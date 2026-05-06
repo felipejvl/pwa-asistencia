@@ -1,0 +1,8 @@
+# Secretos
+js/config.js
+
+# Basura del sistema
+.DS_Store
+Thumbs.db
+node_modules/
+.env

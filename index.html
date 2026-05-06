@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Asistencia Pro - CBTa 47</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/styles.css" />
+  </head>
+  <body class="bg-light">
+    <div id="app">
+      <nav class="navbar navbar-dark bg-dark shadow mb-4">
+        <div class="container-fluid">
+          <span class="navbar-brand">🎓 CBTa 47 - Gestión Asistencias</span>
+
+          <button
+            class="navbar-toggler"
+            type="button"
+            data-bs-toggle="collapse"
+            data-bs-target="#navbarNav"
+          >
+            <span class="navbar-toggler-icon"></span>
+          </button>
+          <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav">
+              <li class="nav-item">
+                <a class="nav-link active" href="#" id="nav-carga"
+                  >📁 Carga CSV</a
+                >
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#" id="nav-gestion"
+                  >⚙️ Gestión (Grupos/Alumnos)</a
+                >
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="#" id="nav-asistencia"
+                  >📝 Pase de Lista</a
+                >
+              </li>
+            </ul>
+          </div>
+        </div>
+      </nav>
+
+      <main class="container" id="main-content">
+        <div id="view-container">
+          <h2 class="text-center">Cargando sistema...</h2>
+        </div>
+      </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script type="module" src="js/main.js"></script>
+  </body>
+</html>
