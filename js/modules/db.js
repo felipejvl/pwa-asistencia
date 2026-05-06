@@ -136,6 +136,10 @@ export async function guardarAsistencia(grupoId, fecha, registros) {
       {
         grupoId: grupoId,
         fecha: fecha,
+        hora: ahora.toLocaleTimeString("es-MX", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
         asistencias: registros,
         actualizadoEl: new Date().toISOString(),
       },
